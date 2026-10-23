@@ -8,6 +8,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE, shadows = [JoyConPadTest.RecordingWriter::class])
@@ -15,6 +16,94 @@ class InputSourceOwnershipTest {
     private val bridge = PadBridge(File(RuntimeEnvironment.getApplication().cacheDir, "input-ownership"))
     private fun state() = JoyConPadTest.RecordingWriter.pads[0]!!
     @After fun close() { bridge.stop(); DeckControls.releaseAll(); DeckControls.setRouter(null) }
+
+    @Test fun profileAndEnableChangesLeaveRingClosedUntilInputArrives() {
+        bridge.setInputRouter(InputRouter(RecordingOutput()))
+        bridge.setInputProfile(InputProfile.defaults(InputProfile.DESKTOP))
+        bridge.setInputEnabled(false)
+        bridge.setInputEnabled(true)
+        assertFalse(ReflectionHelpers.getField<Boolean>(bridge, "open"))
+        bridge.applyExternal({ it.press(PadState.X, true) }, true)
+        assertTrue(ReflectionHelpers.getField<Boolean>(bridge, "open"))
+    }
+
+    @Test fun disablingRoutingPublishesReleaseToAnAlreadyOpenRing() {
+        bridge.setInputRouter(InputRouter(RecordingOutput()))
+        bridge.applyExternal({ it.press(PadState.A, true) }, true)
+        assertTrue(state().isDown(PadState.A))
+        bridge.setInputEnabled(false)
+        assertFalse(state().isDown(PadState.A))
+        bridge.setInputEnabled(true)
+        assertFalse(state().isDown(PadState.A))
+    }
+
+    @Test fun replacingRouterReleasesRetainedPhysicalAndTouchHoldsUntilNeutral() {
+        val before = RecordingOutput()
+        val after = RecordingOutput()
+        val profile = InputProfile.defaults(InputProfile.GAME)
+            .withBinding(InputRole.PHYSICAL, InputControl.A, InputAction.Keys(listOf(29)))
+            .withBinding(InputRole.SECONDARY, InputControl.B, InputAction.Keys(listOf(29)))
+        bridge.setInputRouter(InputRouter(before).also { it.setProfile(profile) })
+        bridge.applyExternal({ it.press(PadState.A, true) }, true)
+        val touch = Any()
+        bridge.applyTouch(touch, InputRole.SECONDARY) { it.press(PadState.B, true) }
+        bridge.setInputRouter(InputRouter(after).also { it.setProfile(profile) })
+        bridge.applyExternal({ it.press(PadState.X, true) }, true)
+        assertEquals(listOf("key 29 true", "key 29 false"), before.events)
+        assertTrue(after.events.isEmpty())
+        bridge.applyExternal({ it.press(PadState.A, false) }, true)
+        bridge.applyExternal({ it.press(PadState.A, true) }, true)
+        assertEquals(listOf("key 29 true"), after.events)
+        bridge.applyExternal({ it.press(PadState.A, false) }, true)
+        assertEquals(listOf("key 29 true", "key 29 false"), after.events)
+        bridge.applyTouch(touch, InputRole.SECONDARY) { it.press(PadState.B, false) }
+        bridge.applyTouch(touch, InputRole.SECONDARY) { it.press(PadState.B, true) }
+        assertEquals("key 29 true", after.events.last())
+    }
+
+    @Test fun replacingRouterReleasesRetainedNativeButtonsAndStick() {
+        bridge.setInputRouter(InputRouter(RecordingOutput()))
+        bridge.applyExternal({ it.press(PadState.A, true); it.leftX = .8f }, true)
+        bridge.setInputRouter(InputRouter(RecordingOutput()))
+        assertFalse(state().isDown(PadState.A))
+        assertEquals(0f, state().leftX)
+        bridge.applyExternal({ it.press(PadState.B, true) }, true)
+        assertTrue(state().isDown(PadState.B))
+        assertFalse(state().isDown(PadState.A))
+        assertEquals(0f, state().leftX)
+        bridge.applyExternal({ it.press(PadState.A, false); it.leftX = 0f }, true)
+        bridge.applyExternal({ it.press(PadState.A, true); it.leftX = .8f }, true)
+        assertTrue(state().isDown(PadState.A))
+        assertEquals(.8f, state().leftX)
+    }
+
+    @Test fun replacingDeckRouterBlocksExistingGripAndContactUntilRelease() {
+        DeckControls.setRouter(InputRouter(RecordingOutput()))
+        val surface = DeckControls.source(InputRole.SECONDARY)
+        try {
+            surface.setGrip(DeckControls.L4, true)
+            surface.setPad(false, true, .3f, .4f)
+            DeckControls.setRouter(InputRouter(RecordingOutput()))
+            assertEquals(0, JoyConPadTest.RecordingWriter.grips)
+            surface.setPad(false, true, .5f, .6f)
+            assertEquals(0, JoyConPadTest.RecordingWriter.grips)
+            surface.setGrip(DeckControls.L4, false)
+            surface.setPad(false, false)
+            surface.setGrip(DeckControls.L4, true)
+            surface.setPad(false, true, .2f, .3f)
+            assertEquals(DeckControls.L4 or 16, JoyConPadTest.RecordingWriter.grips)
+        } finally { surface.close() }
+    }
+
+    private class RecordingOutput : InputOutput {
+        val events = mutableListOf<String>()
+        override fun key(code: Int, down: Boolean) { events += "key $code $down" }
+        override fun button(code: Int, down: Boolean) { events += "button $code $down" }
+        override fun pointer(dx: Float, dy: Float) { events += "pointer" }
+        override fun scroll(steps: Int) { events += "scroll" }
+        override fun command(command: InputCommand) { events += command.name }
+        override fun requestMotion() { events += "motion" }
+    }
 
     @Test fun removingLastTouchSurfaceReleasesLegacyMouseRoute() {
         val routed = PadState()

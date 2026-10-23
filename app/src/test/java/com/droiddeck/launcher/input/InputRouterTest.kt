@@ -25,6 +25,21 @@ class InputRouterTest {
         assertTrue(output.events.isEmpty())
     }
 
+    @Test fun retainedPadReturnsToNativeFastPathAfterHeldControlsReachNeutral() {
+        val raw = PadState().apply { press(PadState.A, true); leftX = .8f }
+        val source = router.pad(InputRole.PHYSICAL, raw)
+        raw.press(PadState.B, true)
+        val blocked = source.route(raw)
+        assertFalse(blocked.isDown(PadState.A))
+        assertEquals(0f, blocked.leftX)
+        assertTrue(blocked.isDown(PadState.B))
+        raw.clear()
+        source.route(raw)
+        raw.press(PadState.A, true)
+        repeat(1000) { assertSame(raw, source.route(raw)) }
+        assertTrue(output.events.isEmpty())
+    }
+
     @Test fun localBindingConsumesOnlyItsOwnNativeControlAndReleasesModifiersLast() {
         router.setProfile(bind(InputControl.A, InputAction.Keys(listOf(29, 30))))
         val source = router.pad(InputRole.PHYSICAL)

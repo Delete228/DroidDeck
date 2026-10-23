@@ -48,8 +48,9 @@ class InputRouter(private val output: InputOutput) {
         moving = false
     }
 
+    @JvmOverloads
     @Synchronized
-    fun pad(role: InputRole): PadSource = PadSource(role).also { pads.add(it) }
+    fun pad(role: InputRole, retained: PadState? = null): PadSource = PadSource(role, retained).also { pads.add(it) }
 
     @Synchronized
     fun channel(role: InputRole, control: InputControl, fixedAction: InputAction? = null): Channel = Channel(role, control, fixedAction).also {
@@ -126,6 +127,11 @@ class InputRouter(private val output: InputOutput) {
 
         internal fun observe(value: Float, second: Float = 0f, touching: Boolean = false) {
             x = value; y = second; contact = touching
+        }
+
+        internal fun awaitNeutral(value: Float, second: Float, touching: Boolean) = synchronized(this@InputRouter) {
+            observe(value, second, touching)
+            suspend()
         }
 
         internal fun nativeIdentity(): Boolean = enabled && !blocked && (action as? InputAction.Native)?.target == null && action is InputAction.Native
@@ -218,14 +224,20 @@ class InputRouter(private val output: InputOutput) {
         }
     }
 
-    inner class PadSource internal constructor(role: InputRole) {
+    inner class PadSource internal constructor(role: InputRole, retained: PadState?) {
         private val routes = Array(InputControl.padControls.size) { channel(role, InputControl.padControls[it]) }
         private val result = PadState()
         private var last: PadState? = null
         private var identity = true
         private var nativeCandidate = true
 
-        init { refreshIdentity() }
+        init {
+            last = retained
+            if (retained != null) for (route in routes) {
+                route.awaitNeutral(retained.value(route.control), retained.secondValue(route.control), false)
+            }
+            refreshIdentity()
+        }
 
         internal fun refreshIdentity() {
             nativeCandidate = routes.all { (it.action as? InputAction.Native)?.target == null && it.action is InputAction.Native }

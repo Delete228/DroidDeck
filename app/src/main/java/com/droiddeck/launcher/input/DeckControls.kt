@@ -16,6 +16,7 @@ object DeckControls {
 
     @Synchronized
     fun setRouter(next: InputRouter?) {
+        if (router === next) return
         for (source in sources) source.closeRoutes()
         router = next
         for (source in sources) source.configure()
@@ -61,7 +62,11 @@ object DeckControls {
         internal val axes = ShortArray(4)
 
         internal fun configure() {
-            routes = router?.let { r -> Array(8) { r.channel(role, controls[it]) } }
+            routes = router?.let { r -> Array(8) { i ->
+                r.channel(role, controls[i]).also { it.awaitNeutral(x[i], y[i], touched[i]) }
+            } }
+            mask = 0
+            axes.fill(0)
         }
 
         private fun attach() {

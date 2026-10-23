@@ -123,6 +123,13 @@ controls must return to neutral before activating their new bindings. Device
 removal and surface disposal remove their owned state. The existing menu
 navigation path remains available independently of gameplay assignments.
 
+When an adapter attaches retained input state to a replacement router, it seeds
+the new channels without emitting presses and requires held controls to return
+to neutral. Already-open pad rings receive the released state immediately;
+attaching a router, changing a profile or enabling input does not open an unused
+ring. Steam-menu and VR stick-switch requests use separate system-owned button
+pulses, so primary-surface bindings cannot suppress or remap those commands.
+
 The menu and keyboard commands currently open their respective UI; they are not
 toggles. Back/B closes the menu. This can be reconsidered with the UX work.
 

@@ -74,6 +74,28 @@ Earlier native testing also exposed three i386 ring-test failures, reproduced on
 the unmodified pre-feature baseline. These are not presented as passing or fixed
 by this PR. Physical BLE coverage is likewise not implied by synthetic tests.
 
+### PR review follow-up
+
+After the first CodeRabbit review of PR #1439, nine regression tests were added
+for deferred pad-ring opening, releases to an already-open ring, system-owned
+Steam/VR actions, and retained input when replacing a router. Seven of the new
+scenarios reproduced failures before the fixes. The retained-input tests cover
+physical and touch button ownership, native sticks, Deck grips and trackpad
+contacts; a separate regression verifies return to the native identity fast path
+without scheduling output after held controls reach neutral.
+
+The full `:app:testDebugUnitTest` run now passes **2,239 tests across 334 suites,
+zero failures/errors/skips**. `:app:assembleDebug` also passes with the existing
+verified native inputs and the same Java/SDK/NDK and `-PskipRust=true` settings.
+The resulting APK passes `check_session_assets.py` and `runtime_inputs.py apk`;
+its SHA-256 is
+`1c77c85d5d08c4a054db0528ade33d60eaf8755c09a56a598f342207b27c85d4`.
+
+These follow-up changes have not been installed on Thor or benchmarked on the
+device. Retained-state initialization runs when sources attach; ordinary input
+keeps its existing synchronous routing and native identity path. The VR command
+uses the existing chord handler for its release, retaining the 120 ms pulse.
+
 ## Manual AYN Thor results
 
 The user performed the following checks in the installed candidate. The desktop

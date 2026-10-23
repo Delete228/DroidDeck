@@ -1105,10 +1105,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private fun sendSteamGuide() {
         drawerOpen = false
-        padBridge?.applyTouch { state -> state.press(com.droiddeck.launcher.input.PadState.GUIDE, true) }
-        uiHandler.postDelayed({
-            padBridge?.applyTouch { state -> state.press(com.droiddeck.launcher.input.PadState.GUIDE, false) }
-        }, 90)
+        padBridge?.triggerSteamMenu()
     }
 
     @androidx.compose.runtime.Composable
@@ -1151,12 +1148,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     /** The SteamVR driver switches pad sticks between hands and game on both stick clicks together. */
     private fun switchVrSticks() {
-        val chord = { down: Boolean -> padBridge?.applyTouch { state ->
-            state.press(com.droiddeck.launcher.input.PadState.L3, down)
-            state.press(com.droiddeck.launcher.input.PadState.R3, down)
-        } }
-        chord(true)
-        uiHandler.postDelayed({ chord(false) }, 120)
+        padBridge?.triggerVrStickSwitch()
     }
 
     private fun triggerSteamQam() {
