@@ -96,6 +96,29 @@ device. Retained-state initialization runs when sources attach; ordinary input
 keeps its existing synchronous routing and native identity path. The VR command
 uses the existing chord handler for its release, retaining the 120 ms pulse.
 
+### SELECT and panel ownership follow-up
+
+The next review covered SELECT-to-GUIDE routing and child-view ownership. The
+existing one-time Select-as-Steam migration is exercised through real controller
+key events, including simultaneous physical GUIDE ownership. Explicit native,
+disabled and local SELECT assignments, and resetting the Game profile, remain
+authoritative. Removing the obsolete bridge flag keeps raw SELECT state stable
+when a router is attached or removed while the button is held.
+
+Panel regressions use an attached Android view hierarchy and a two-finger
+trackpad contact. Switching the other stick to a trackpad, or removing the D-pad
+or face buttons, must release only that child's controls and preserve the other
+trackpad's contact, coordinates and click. Whole-panel removal still releases
+the shared source. These three panel scenarios and the retained SELECT scenario
+failed before the fixes; all seven new tests pass after them.
+
+The complete JVM run passes **2,246 tests across 336 suites, zero failures/errors/
+skips**. The debug APK build, session-asset check and runtime-input verification
+pass with the same local build settings. APK SHA-256:
+`0d85b4003cd6b31084e50d603e8b00f239775c9c97f3ec17327264db5dd50612`.
+These changes have host coverage only; Thor validation and new latency
+measurements remain pending.
+
 ## Manual AYN Thor results
 
 The user performed the following checks in the installed candidate. The desktop

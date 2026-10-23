@@ -551,8 +551,7 @@ class DeckControlsPanel(
         override fun onDetachedFromWindow() {
             setClick(false)
             if (knobX != 0f || knobY != 0f) move(0f, 0f, 1f)
-            deckSource.close()
-        super.onDetachedFromWindow()
+            super.onDetachedFromWindow()
         }
     }
 
@@ -610,8 +609,7 @@ class DeckControlsPanel(
 
         override fun onDetachedFromWindow() {
             set(0)
-            deckSource.close()
-        super.onDetachedFromWindow()
+            super.onDetachedFromWindow()
         }
     }
 
@@ -672,8 +670,7 @@ class DeckControlsPanel(
 
         override fun onDetachedFromWindow() {
             set(emptySet())
-            deckSource.close()
-        super.onDetachedFromWindow()
+            super.onDetachedFromWindow()
         }
     }
 

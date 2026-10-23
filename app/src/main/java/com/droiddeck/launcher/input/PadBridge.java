@@ -67,7 +67,6 @@ public final class PadBridge {
     }
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean open;
-    private volatile boolean selectSteam;
     private volatile boolean builtinPad = true;
     private TouchRoute touchRoute;
     private boolean touchMouseActive;
@@ -120,10 +119,6 @@ public final class PadBridge {
         Arrays.fill(owners, NO_CONTROLLER);
         Arrays.fill(partners, NO_CONTROLLER);
         for (int slot = 1; slot < SLOTS; slot++) playerStates[slot] = new PadState();
-    }
-
-    public void setSelectSteam(boolean on) {
-        selectSteam = on;
     }
 
     public synchronized void setInputRouter(InputRouter router) {
@@ -363,9 +358,6 @@ public final class PadBridge {
             case KeyEvent.KEYCODE_BUTTON_L1: pad.press(4, pressed); break;
             case KeyEvent.KEYCODE_BUTTON_R1: pad.press(5, pressed); break;
             case KeyEvent.KEYCODE_BUTTON_SELECT:
-                if (selectSteam && inputRouter == null) pad.press(PadState.GUIDE, pressed);
-                else pad.press(6, pressed);
-                break;
             case KeyEvent.KEYCODE_BACK: pad.press(6, pressed); break;
             case KeyEvent.KEYCODE_BUTTON_START:
             case KeyEvent.KEYCODE_MENU: pad.press(7, pressed); break;

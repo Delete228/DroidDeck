@@ -95,6 +95,10 @@ trackpads and grips; it does not create another emulated controller.
 
 The old touch-only mapping and Select-as-Steam settings migrate once into Game's
 primary-screen and physical bindings respectively. Their redundant UI is removed.
+`PadBridge` retains raw SELECT state; only the profile maps it to GUIDE. The old
+flag is read for migration, not applied again during event handling, so explicit
+native/disabled/local bindings and profile resets remain authoritative. Attaching
+or removing a router cannot change which raw button a SELECT release clears.
 Invalid stored entries fall back to defaults. The global settings reset clears
 both profile and surface settings without reimporting the old mappings.
 
