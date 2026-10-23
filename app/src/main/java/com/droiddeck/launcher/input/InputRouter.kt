@@ -79,7 +79,7 @@ class InputRouter(private val output: InputOutput) {
             val cy = if (abs(channel.y) > 0.12f) channel.y else 0f
             when (val action = channel.action) {
                 is InputAction.Pointer -> { x += cx * action.speed; y += cy * action.speed }
-                is InputAction.Scroll -> scroll -= cy * action.speed
+                is InputAction.Scroll -> scroll += cy * action.speed
                 else -> Unit
             }
         }

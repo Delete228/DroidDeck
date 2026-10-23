@@ -49,6 +49,7 @@ class SecondScreenPresentation(
     private val onQam: () -> Unit,
     private val onClose: () -> Unit,
     private val pad: PadBridge? = null,
+    private val pointerPosition: () -> androidx.compose.ui.geometry.Offset? = { null },
 ) : Presentation(sessionActivity, display) {
     private val root = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -356,7 +357,12 @@ class SecondScreenPresentation(
             canvas.drawColor(Color.BLACK)
         }
 
-        override fun onTouchEvent(event: MotionEvent): Boolean = gestures.onTouch(event)
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) pointerPosition()?.let {
+                gestures.place(it.x * width, it.y * height)
+            }
+            return gestures.onTouch(event)
+        }
     }
 
     private inner class TerminalClient : TerminalSessionClient, TerminalViewClient {

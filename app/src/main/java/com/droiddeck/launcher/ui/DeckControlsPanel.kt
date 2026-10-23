@@ -360,6 +360,8 @@ class DeckControlsPanel(
             drawSurface(canvas, down)
             val cx = width / 2f
             labelPaint.textSize = min(height * 0.3f, 30 * density)
+            val labelWidth = labelPaint.measureText(label)
+            if (labelWidth > width * 0.84f) labelPaint.textSize *= width * 0.84f / labelWidth
             labelPaint.color = if (down) ACCENT else TEXT
             val labelY = height / 2f + labelPaint.textSize * (if (caption == null) 0.35f else 0.1f)
             canvas.drawText(label, cx, labelY, labelPaint)

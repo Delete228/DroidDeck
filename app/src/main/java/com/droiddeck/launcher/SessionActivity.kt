@@ -165,6 +165,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var physicalInputBindings: com.droiddeck.launcher.input.PhysicalInputBindings? = null
     private var inputSettingsOpen by mutableStateOf(false)
     @Volatile private var inputUsesLocalActions = false
+    private var inputUsesPointer = false
     private var inputProfile = InputProfile.defaults(InputProfile.GAME)
     private val inputMotion = InputMotion { inputRouter }
     private val heldKeys = HeldInput { code, down -> WaylandCompositor.nativeSendKey(code, if (down) 1 else 0) }
@@ -172,7 +173,13 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private val inputOutput = object : InputOutput {
         override fun key(code: Int, down: Boolean) { heldKeys.set(4, code, down) }
         override fun button(code: Int, down: Boolean) { heldButtons.set(4, code, down) }
-        override fun pointer(dx: Float, dy: Float) { WaylandCompositor.sendPointerDelta(dx, dy) }
+        override fun pointer(dx: Float, dy: Float) {
+            if (Looper.myLooper() == Looper.getMainLooper()) moveInputPointer(dx, dy)
+            else uiHandler.post {
+                if (resumed && !SessionState.suspended && !pipUi && !drawerOpen && !inputSettingsOpen)
+                    moveInputPointer(dx, dy)
+            }
+        }
         override fun scroll(steps: Int) { WaylandCompositor.nativeSendSceneInput(4, steps, 0) }
         override fun requestMotion() { inputMotion.request() }
         override fun command(command: InputCommand) {
@@ -568,11 +575,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         }
         SessionState.deckPadListener = deckPadListener
         openDeckRing("activity created")
-        bridge.setOnPlayerInput {
-            lastPadInputMs = android.os.SystemClock.uptimeMillis()
-            uiHandler.removeCallbacks(cursorHide)
-            cursorVisible = false
-        }
+        bridge.setOnPlayerInput(::onPadInput)
         onScreenControls = OnScreenControls(this, bridge, onKeyboard = ::togglePcKeyboard).also { root.addView(it) }
         keyboard = KeyboardHost(this).also { root.addView(it) }
         touchpad = TouchpadGestures(PointerGestures.slop(this), pointerListener)
@@ -2429,13 +2432,36 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         showCursor(cx, cy)
     }
 
+    private fun moveInputPointer(dx: Float, dy: Float) {
+        if (pointerLocked) {
+            WaylandCompositor.sendPointerDelta(dx, dy)
+            cursorVisible = false
+            return
+        }
+        val rect = drawnRect() ?: return
+        val position = cursorPos
+        val x = if (position.x >= 0f) position.x.coerceIn(rect.left, rect.right) else rect.centerX()
+        val y = if (position.y >= 0f) position.y.coerceIn(rect.top, rect.bottom) else rect.centerY()
+        val out = SessionState.outputSize
+        movePointer(x + dx * rect.width() / out.first, y + dy * rect.height() / out.second)
+        // Make frame-callback updates visible to drawing before this frame's traversal.
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+    }
+
+    private fun onPadInput() {
+        if (inputUsesPointer && !pointerLocked) return
+        lastPadInputMs = android.os.SystemClock.uptimeMillis()
+        uiHandler.removeCallbacks(cursorHide)
+        cursorVisible = false
+    }
+
     private fun showCursor(x: Float, y: Float) {
         cursorPos = androidx.compose.ui.geometry.Offset(x, y)
         syncClientCursor()
         uiHandler.removeCallbacks(cursorResync)
         uiHandler.postDelayed(cursorResync, 60)
         if (clientHidesCursor) { cursorVisible = false; return }
-        if (android.os.SystemClock.uptimeMillis() - lastPadInputMs < CURSOR_PAD_HOLD_MS) return
+        if (!inputUsesPointer && android.os.SystemClock.uptimeMillis() - lastPadInputMs < CURSOR_PAD_HOLD_MS) return
         cursorVisible = true
         uiHandler.removeCallbacks(cursorHide)
         if (SessionState.mode == SessionService.MODE_STEAM && SessionState.steamUi != "desktop") uiHandler.postDelayed(cursorHide, 2500)
@@ -2535,6 +2561,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 onQam = ::tapQam,
                 onClose = { selectSecondScreenMode(SecondScreenMode.NONE) },
                 pad = padBridge,
+                pointerPosition = {
+                    drawnRect()?.takeIf { cursorPos.x >= 0f && cursorPos.y >= 0f }?.let {
+                        androidx.compose.ui.geometry.Offset((cursorPos.x - it.left) / it.width(), (cursorPos.y - it.top) / it.height())
+                    }
+                },
             )
             secondScreenPresentation = presentation
         }
@@ -2557,6 +2588,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun refreshInputProfile() {
         inputProfile = InputProfiles.active(this, loadingMode() == SessionService.MODE_DESKTOP)
         inputUsesLocalActions = InputControl.padControls.any { inputProfile.action(InputRole.PHYSICAL, it) !is InputAction.Native }
+        inputUsesPointer = inputProfile.bindings.values.any { bindings ->
+            bindings.values.any { it is InputAction.Pointer || it is InputAction.MouseButton || it is InputAction.Scroll }
+        } || inputProfile.keys.any { it.action is InputAction.MouseButton }
         physicalInputBindings?.configure(inputProfile.keys)
         padBridge?.setInputProfile(inputProfile)
         DeckControls.refresh()
@@ -2724,6 +2758,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 touchpad.bounds = rect
                 if (fresh) touchpad.place(rect.centerX(), rect.centerY())
             }
+            if (event.actionMasked == MotionEvent.ACTION_DOWN && !pointerLocked && cursorPos.x >= 0f && cursorPos.y >= 0f)
+                touchpad.place(cursorPos.x, cursorPos.y)
             return touchpad.onTouch(event)
         }
         val rect = drawnRect() ?: return false

@@ -117,6 +117,35 @@ class InputRouterTest {
         assertEquals(1, output.events.size)
     }
 
+    @Test fun stickScrollFollowsUpAndDownForEveryInputRoleAndStopsOnRelease() {
+        for (role in InputRole.entries) {
+            router.setProfile(bind(InputControl.RS, InputAction.Scroll(10f), role))
+            val channel = router.channel(role, InputControl.RS)
+            output.events.clear()
+            channel.update(0f, -1f)
+            repeat(2) { assertTrue(router.tick(.05f)) }
+            assertEquals(listOf("motion", "scroll -1"), output.events)
+            channel.update(0f, 1f)
+            repeat(2) { assertTrue(router.tick(.05f)) }
+            assertEquals("scroll 1", output.events.last())
+            channel.release()
+            val count = output.events.size
+            assertFalse(router.tick(.05f))
+            assertEquals(count, output.events.size)
+            channel.close()
+        }
+    }
+
+    @Test fun trackpadScrollKeepsItsContactDirectionAndDoesNotScheduleStickMotion() {
+        router.setProfile(bind(InputControl.LEFT_PAD, InputAction.Scroll(10f), InputRole.SECONDARY))
+        val channel = router.channel(InputRole.SECONDARY, InputControl.LEFT_PAD)
+        channel.update(0f, 0f, true)
+        channel.update(0f, .5f, true)
+        channel.update(0f, 0f, true)
+        assertEquals(listOf("scroll 5", "scroll -5"), output.events)
+        assertFalse(router.tick(.05f))
+    }
+
     @Test fun disablingRoutingReleasesKeysAndBlocksHeldInputOnResume() {
         router.setProfile(bind(InputControl.A, InputAction.Keys(listOf(1))))
         val source = router.pad(InputRole.PHYSICAL)
