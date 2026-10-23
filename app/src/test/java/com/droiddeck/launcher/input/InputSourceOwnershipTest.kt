@@ -16,6 +16,36 @@ class InputSourceOwnershipTest {
     private fun state() = JoyConPadTest.RecordingWriter.pads[0]!!
     @After fun close() { bridge.stop(); DeckControls.releaseAll(); DeckControls.setRouter(null) }
 
+    @Test fun removingLastTouchSurfaceReleasesLegacyMouseRoute() {
+        val routed = PadState()
+        bridge.setTouchRoute(object : PadBridge.TouchRoute {
+            override fun active() = true
+            override fun accept(state: PadState) { routed.copyFrom(state) }
+        })
+        val first = Any(); val second = Any()
+        bridge.applyTouch(first, InputRole.PRIMARY) { it.press(PadState.A, true) }
+        bridge.applyTouch(second, InputRole.SECONDARY) { it.press(PadState.A, true) }
+        bridge.releaseTouch(first)
+        assertTrue(routed.isDown(PadState.A))
+        bridge.releaseTouch(second)
+        assertFalse(routed.isDown(PadState.A))
+    }
+
+    @Test fun nativeTrackpadKeepsItsOwnerUntilThatContactEnds() {
+        val first = DeckControls.source(InputRole.PRIMARY)
+        val second = DeckControls.source(InputRole.SECONDARY)
+        try {
+            first.setPad(false, true, .25f, .5f)
+            val firstPosition = JoyConPadTest.RecordingWriter.deckPads.copyOf()
+            second.setPad(false, true, -.75f, -.5f)
+            assertArrayEquals(firstPosition, JoyConPadTest.RecordingWriter.deckPads)
+            first.setPad(false, false)
+            assertTrue(JoyConPadTest.RecordingWriter.deckPads[0] < 0)
+            second.close()
+            assertEquals(0, JoyConPadTest.RecordingWriter.grips and 16)
+        } finally { first.close(); second.close() }
+    }
+
     @Test fun closingOneSurfaceDoesNotReleaseAnotherSurfaceOrPhysicalPad() {
         val a = Any(); val b = Any()
         bridge.applyExternal({ it.press(PadState.A, true) }, true)

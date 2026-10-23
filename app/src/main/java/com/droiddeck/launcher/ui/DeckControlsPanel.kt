@@ -473,8 +473,7 @@ class DeckControlsPanel(
     ) : HoldButton(context, label, null, { down -> pad.applyTouch(this@DeckControlsPanel, inputRole) { write(it, down) } }) {
         override fun onDetachedFromWindow() {
             pad.applyTouch(this@DeckControlsPanel, inputRole) { write(it, false) }
-            deckSource.close()
-        super.onDetachedFromWindow()
+            super.onDetachedFromWindow()
         }
     }
 

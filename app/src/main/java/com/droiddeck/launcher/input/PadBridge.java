@@ -70,6 +70,7 @@ public final class PadBridge {
     private volatile boolean selectSteam;
     private volatile boolean builtinPad = true;
     private TouchRoute touchRoute;
+    private boolean touchMouseActive;
     private final PadState routedTouch = new PadState();
     private boolean systemGuidePressed;
     private boolean systemQamPressed;
@@ -464,6 +465,7 @@ public final class PadBridge {
 
     public synchronized void setTouchRoute(TouchRoute route) {
         touchRoute = route;
+        touchMouseActive = false;
         routedTouch.clear();
     }
 
@@ -762,22 +764,23 @@ public final class PadBridge {
     private void publish() {
         if (!builtinPad && !open && owners[0] == NO_CONTROLLER && partners[0] == NO_CONTROLLER) return;
         PadState output = physicalRoutes[0] == null ? state : physicalRoutes[0].route(state);
+        boolean mouseRoute = (!touchSources.isEmpty() || touchMouseActive) && touchRoute != null && touchRoute.active();
+        touchMouseActive = mouseRoute && !touchSources.isEmpty();
+        if (mouseRoute) routedTouch.clear();
         if (!touchSources.isEmpty()) {
             combinedState.copyFrom(output);
-            routedTouch.clear();
-            boolean epic = touchRoute != null && touchRoute.active();
             for (TouchSource source : touchSources.values()) {
                 PadState touch = source.route == null ? source.raw : source.route.route(source.raw);
-                if (epic) {
+                if (mouseRoute) {
                     routedTouch.merge(touch);
                     source.passthrough.clear();
                     for (int button : ROUTED_PASS_THROUGH) source.passthrough.press(button, touch.isDown(button));
                     combinedState.merge(source.passthrough);
                 } else combinedState.merge(touch);
             }
-            if (epic) touchRoute.accept(routedTouch);
             output = combinedState;
         }
+        if (mouseRoute) touchRoute.accept(routedTouch);
         boolean guide = systemGuidePressed || qamChordActive || guideTapPressed;
         boolean routedQam = output.isDown(PadState.QAM);
         boolean routedQamStarted = routedQam && !routedQamPressed;

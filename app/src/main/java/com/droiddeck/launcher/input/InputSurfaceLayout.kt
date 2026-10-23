@@ -12,6 +12,8 @@ data class InputSurfaceElement(val control: InputControl, val x: Float, val y: F
 object InputSurfaceLayout {
     private fun prefs(context: Context) = context.getSharedPreferences("input-surfaces", Context.MODE_PRIVATE)
 
+    fun resetAll(context: Context) { prefs(context).edit().clear().apply() }
+
     fun defaults() = listOf(
         InputSurfaceElement(InputControl.LEFT_PAD, 0.02f, 0.02f, 0.46f, 0.65f),
         InputSurfaceElement(InputControl.RIGHT_PAD, 0.52f, 0.02f, 0.46f, 0.65f),

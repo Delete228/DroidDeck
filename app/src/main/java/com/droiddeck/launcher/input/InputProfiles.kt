@@ -68,6 +68,7 @@ object InputProfiles {
 
     fun resetAll(context: Context) {
         prefs(context).edit().clear().putBoolean("migrated", true).apply()
+        InputSurfaceLayout.resetAll(context)
     }
 
     private fun migrate(context: Context) {

@@ -12,6 +12,7 @@ object DeckControls {
     private var router: InputRouter? = null
     private val pads = ShortArray(4)
     private val pressure = ShortArray(2)
+    private val touchOwners = arrayOfNulls<Source>(2)
 
     @Synchronized
     fun setRouter(next: InputRouter?) {
@@ -131,10 +132,15 @@ object DeckControls {
         pads.fill(0)
         for (source in sources) {
             mask = mask or source.mask
-            for (side in 0..1) if (source.mask and (16 shl side) != 0) {
-                pads[side * 2] = source.axes[side * 2]
-                pads[side * 2 + 1] = source.axes[side * 2 + 1]
-            }
+        }
+        for (side in 0..1) {
+            val contact = 16 shl side
+            val owner = touchOwners[side]?.takeIf { it.mask and contact != 0 }
+                ?: sources.firstOrNull { it.mask and contact != 0 }
+            touchOwners[side] = owner
+            if (owner == null) continue
+            pads[side * 2] = owner.axes[side * 2]
+            pads[side * 2 + 1] = owner.axes[side * 2 + 1]
         }
         pressure[0] = if (mask and 64 != 0) Short.MAX_VALUE else 0
         pressure[1] = if (mask and 128 != 0) Short.MAX_VALUE else 0
