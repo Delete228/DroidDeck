@@ -151,7 +151,6 @@ class DeckControlsPanel(
     private fun select(tab: Tab) {
         if (pad != null) selectedWithPad = tab else selected = tab
         deckSource.release()
-        pad?.releaseTouch(this)
         for ((each, view) in tabViews) {
             val on = each == tab
             view.background = if (on) filled(CORNER_PILL, ACCENT) else null
@@ -169,6 +168,7 @@ class DeckControlsPanel(
             }
         }
         content.removeAllViews()
+        pad?.releaseTouch(this)
         topBar.visibility = if (tab == Tab.GAMEPAD) View.GONE else View.VISIBLE
         content.addView(
             when (tab) {

@@ -89,6 +89,49 @@ class DeckControlsPanelOwnershipTest {
         assertTrackpadStillHeld(position)
     }
 
+    @Test fun switchingTabsRemovesTheOldTouchSourceAfterChildrenRelease() {
+        val routed = recordTouchRoute()
+        holdFaceButton()
+        assertTrue(routed.last().isDown(PadState.A))
+        descendants(panel).filterIsInstance<TextView>().first { it.text == activity.getString(R.string.deck_tab_grips) }.performClick()
+        assertFalse(routed.last().isDown(PadState.A))
+        assertEquals(0, JoyConPadTest.RecordingWriter.grips)
+        routed.clear()
+        bridge.applyExternal({ it.press(PadState.B, true) }, true)
+        assertTrue("removed tab still forwards a neutral touch source", routed.isEmpty())
+        assertTrue(state().isDown(PadState.B))
+
+        descendants(panel).filterIsInstance<TextView>().first { it.text == activity.getString(R.string.deck_tab_gamepad) }.performClick()
+        holdFaceButton()
+        assertTrue(routed.last().isDown(PadState.A))
+    }
+
+    @Test fun removingThePanelLeavesNoTouchSourceForLaterPhysicalInput() {
+        val routed = recordTouchRoute()
+        holdFaceButton()
+        root.removeView(panel)
+        assertFalse(routed.last().isDown(PadState.A))
+        routed.clear()
+        bridge.applyExternal({ it.press(PadState.B, true) }, true)
+        assertTrue("removed panel still forwards a neutral touch source", routed.isEmpty())
+        assertTrue(state().isDown(PadState.B))
+    }
+
+    private fun holdFaceButton() {
+        val buttons = child("FaceButtons")
+        buttons.layout(0, 0, 300, 300)
+        touch(buttons, MotionEvent.ACTION_DOWN, 150f, 240f)
+    }
+
+    private fun recordTouchRoute(): MutableList<PadState> {
+        val routed = mutableListOf<PadState>()
+        bridge.setTouchRoute(object : PadBridge.TouchRoute {
+            override fun active() = true
+            override fun accept(state: PadState) { routed += PadState().apply { copyFrom(state) } }
+        })
+        return routed
+    }
+
     private fun assertTrackpadStillHeld(position: ShortArray) {
         assertEquals(32 or 128, JoyConPadTest.RecordingWriter.grips)
         assertArrayEquals(position, JoyConPadTest.RecordingWriter.deckPads)

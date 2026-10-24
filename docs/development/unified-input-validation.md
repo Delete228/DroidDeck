@@ -119,6 +119,21 @@ pass with the same local build settings. APK SHA-256:
 These changes have host coverage only; Thor validation and new latency
 measurements remain pending.
 
+### Panel tab teardown follow-up
+
+Tab changes now remove the old child views before releasing the panel's touch
+source. Child detach callbacks can publish button releases, so source cleanup
+must run after those callbacks to avoid retaining a neutral source.
+
+The new tab-switch regression fails before this fix and passes after it. It
+checks held-button release, removal of the old source before later physical
+input, and touch input after returning to the Gamepad tab. A second regression
+confirms that whole-panel removal already releases the source correctly.
+All **22 targeted tests** in the panel ownership, input ownership and second-screen
+suites pass. The debug APK build, session-asset check and runtime-input
+verification also pass. This follow-up has not been tested on Thor or benchmarked
+on the device.
+
 ## Manual AYN Thor results
 
 The user performed the following checks in the installed candidate. The desktop
